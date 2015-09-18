@@ -1,0 +1,21 @@
+machine:
+  services:
+    - docker
+
+dependencies:
+  override:
+    - docker info
+    - gem install httparty
+    - rake build
+
+test:
+  override:
+    - docker run -d -p 80:80 parabuzzle/docker-circle-ci:latest; sleep 10
+    - curl --retry 10 --retry-delay 5 -v http://localhost:80/
+
+deployment:
+  hub:
+    branch: master
+    commands:
+      - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+      - rake push
