@@ -1,43 +1,54 @@
 require 'rake'
 require 'httparty'
 
+# Read the base version from VERSION file.
 def version
   File.readlines('./VERSION').first.strip
 end
 
+# The name of the container
+# This is based off of the directory name
 def container_name
   File.basename(Dir.getwd)
 end
 
+# The username the container is pushed to on DockerHub
 def username
   'parabuzzle'
 end
 
-def latest_hub_version
-  taginfo        = JSON.parse(HTTParty.get("https://hub.docker.com/v2/repositories/#{username}/#{container_name}/tags/").body)['results']
-  tags = []
-  taginfo.each do |tag|
-    tags << tag['name']
-  end
-  (tags - ['latest']).sort.last
-end
-
-def next_version
+# Get the latest version for the given base version provided by #version
+def hub_version
   base           = version
   taginfo        = JSON.parse(HTTParty.get("https://hub.docker.com/v2/repositories/#{username}/#{container_name}/tags/").body)['results']
-  return "#{base}.0" if taginfo.nil?
+  return {base: base, build: nil} if taginfo.nil?
   tags = []
   taginfo.each do |tag|
     tags << tag['name']
   end
   current_base   = tags.grep(/#{base}/)
-  return "#{base}.0" if current_base.empty?
+  return {base: base, build: nil} if current_base.empty?
   build = current_base.sort { |x,y|
       a = x.split('.')[base.split('.').count].to_i
       b = y.split('.')[base.split('.').count].to_i
       a <=> b
-    }.last.split('.').last.to_i + 1
-  return "#{base}.#{build}"
+    }.last.split('.').last.to_i
+  return {base: base, build: build}
+end
+
+# return current hub version for the current base
+def latest_hub_version
+  latest = hub_version
+  "#{latest[:base]}.#{latest[:build]}"
+end
+
+# return the next version for the current base
+def next_version
+  latest = hub_version
+  base   = version
+  build  = latest[:build] || -1
+  build  += 1
+  "#{base}.#{build}"
 end
 
 task :install_deps do
